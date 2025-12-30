@@ -1,0 +1,154 @@
+------------------------------------------------------------
+-- 1. CREATE TABLES
+------------------------------------------------------------
+
+CREATE TABLE participants (
+    participant_id INT IDENTITY(1,1) PRIMARY KEY,
+    participant_code VARCHAR(50) UNIQUE NOT NULL,
+    age INT,
+    gender VARCHAR(10),
+    ethnicity VARCHAR(50),
+    created_at DATETIME DEFAULT GETDATE()
+);
+
+CREATE TABLE vip_marker_references (
+    marker_id INT IDENTITY(1,1) PRIMARY KEY,
+    marker_code VARCHAR(50) NOT NULL UNIQUE,
+    marker_name VARCHAR(255) NOT NULL,
+    category VARCHAR(100) NOT NULL,
+    unit VARCHAR(50) NOT NULL,
+    western_min DECIMAL(10,2),
+    western_max DECIMAL(10,2),
+    optimal_min DECIMAL(10,2),
+    optimal_max DECIMAL(10,2),
+    gcc_min DECIMAL(10,2),
+    gcc_max DECIMAL(10,2),
+    elevated_threshold DECIMAL(10,2),
+    high_threshold DECIMAL(10,2),
+    critical_threshold DECIMAL(10,2),
+    priority INT DEFAULT 1,
+    weight DECIMAL(3,2) DEFAULT 1.0,
+    description VARCHAR(MAX),
+    lower_is_worse bit,
+    created_at DATETIME DEFAULT GETDATE(),
+    updated_at DATETIME DEFAULT GETDATE()
+);
+
+CREATE TABLE participant_biomarkers (
+    biomarker_id INT IDENTITY(1,1) PRIMARY KEY,
+    participant_id INT FOREIGN KEY REFERENCES participants(participant_id),
+    marker_code VARCHAR(50),
+    value DECIMAL(10,2),
+    unit VARCHAR(50),
+    upload_date DATE,
+    report_id VARCHAR(100)
+);
+
+CREATE TABLE secondary_marker_references (
+    marker_id INT IDENTITY(1,1) PRIMARY KEY,
+    marker_code VARCHAR(50) NOT NULL UNIQUE,
+    marker_name VARCHAR(255) NOT NULL,
+    category VARCHAR(100) NOT NULL,
+    subcategory VARCHAR(100),
+    unit VARCHAR(50) NOT NULL,
+    normal_max DECIMAL(10,2) NOT NULL,
+    elevated_max DECIMAL(10,2) NOT NULL,
+    description VARCHAR(MAX),
+    lower_is_worse BIT NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT GETDATE(),
+    updated_at DATETIME DEFAULT GETDATE()
+);
+
+CREATE TABLE participant_secondary_markers (
+    secondary_id INT IDENTITY(1,1) PRIMARY KEY,
+    participant_id INT FOREIGN KEY REFERENCES participants(participant_id),
+    marker_code VARCHAR(50),
+    value DECIMAL(10,2),
+    unit VARCHAR(50),
+    upload_date DATE,
+    report_id VARCHAR(100)
+);
+
+CREATE TABLE analysis_results (
+    analysis_id INT IDENTITY(1,1) PRIMARY KEY,
+    participant_id INT FOREIGN KEY REFERENCES participants(participant_id),
+    analysis_date DATETIME DEFAULT GETDATE(),
+    vip_risk_score DECIMAL(3,1),
+    biological_age DECIMAL(4,1),
+    result_json NVARCHAR(MAX),
+    gemini_report NVARCHAR(MAX)
+);
+
+------------------------------------------------------------
+-- 2. INSERT DATA
+------------------------------------------------------------
+
+-- Participant
+INSERT INTO participants (participant_code, age, gender, ethnicity)
+VALUES ('P-IND-001', 32, 'Male', 'Indian');
+
+------------------------------------------------------------
+-- VIP Marker References (5 records)
+------------------------------------------------------------
+INSERT INTO vip_marker_references (
+    marker_code, marker_name, category, unit,
+    western_min, western_max, optimal_min, optimal_max,
+    gcc_min, gcc_max,
+    elevated_threshold, high_threshold, critical_threshold,
+    priority, weight, description
+) VALUES
+('CRP','C-Reactive Protein','Inflammation','mg/L',0,3,0,1,0,3.5,3.5,10,20,1,1.5,'Inflammation Marker'),
+('IL6','Interleukin 6','Inflammation','pg/mL',0,5,0,1.5,0,5.5,6,15,30,1,1.3,'Cytokine Marker'),
+('HBA1C','Glycated Hemoglobin','Metabolism','%',4,5.6,4,5.2,4,5.8,5.7,6.5,8,2,1.0,'Blood Sugar Control'),
+('LDL','LDL Cholesterol','Cardiovascular','mg/dL',0,130,0,100,0,135,130,160,190,1,1.4,'Bad Cholesterol')
+
+------------------------------------------------------------
+-- Participant VIP Marker Values (5 records)
+------------------------------------------------------------
+INSERT INTO participant_biomarkers (
+    participant_id, marker_code, value, unit, upload_date, report_id
+) VALUES
+(1,'CRP',4.2,'mg/L','2025-01-20','RPT-VIVEK-001'),
+(1,'IL6',6.1,'pg/mL','2025-01-20','RPT-VIVEK-001'),
+(1,'HBA1C',5.8,'%', '2025-01-20','RPT-VIVEK-001'),
+(1,'LDL',145,'mg/dL','2025-01-20','RPT-VIVEK-001'),
+(1,'VITD3',22,'ng/mL','2025-01-20','RPT-VIVEK-001');
+
+------------------------------------------------------------
+-- Secondary Marker References (5 records)
+------------------------------------------------------------
+INSERT INTO secondary_marker_references (
+    marker_code, marker_name, category, subcategory, unit,
+    normal_max, elevated_max, description
+) VALUES
+('SEC001','C-Reactive Protein (CRP)','Inflammation','Protein Marker','mg/L',5,10,'Measures inflammation level. High CRP may indicate infection or chronic inflammation.'),
+('SEC002','Erythrocyte Sedimentation Rate (ESR)','Inflammation','Blood Test','mm/hr',20,40,'Indicates inflammation in the body. Elevated ESR suggests chronic disease or infection.'),
+('SEC003','Ferritin','Iron Studies','Storage Marker','ng/mL',150,300,'Ferritin indicates iron storage. High levels may indicate inflammation or iron overload.'),
+('SEC004','HbA1c','Diabetes','Glycemic Control','%',5.6,6.4,'Reflects average blood glucose levels over 3 months. Elevated HbA1c suggests prediabetes.'),
+('SEC005','Vitamin D (25-OH)','Vitamins','Nutrient Levels','ng/mL',50,75,'Indicates Vitamin D sufficiency. Low levels suggest deficiency.');
+
+
+------------------------------------------------------------
+-- Participant Secondary Marker Values (5 records)
+------------------------------------------------------------
+INSERT INTO participant_secondary_markers (
+    participant_id, marker_code, value, unit, upload_date, report_id
+) VALUES
+(1,'SEC001',8,'mg/L','2025-01-20','RPT-VIVEK-001'),
+(1,'SEC002',35,'mm/hr','2025-01-20','RPT-VIVEK-001'),
+(1,'SEC003',280,'ng/mL','2025-01-20','RPT-VIVEK-001'),
+(1,'SEC004',6.2,'%','2025-01-20','RPT-VIVEIN001'),
+(1,'SEC005',22,'ng/mL','2025-01-20','RPT-VIVEK-001');
+
+------------------------------------------------------------
+-- Analysis Result (1 record)
+------------------------------------------------------------
+INSERT INTO analysis_results (
+    participant_id, vip_risk_score, biological_age, result_json, gemini_report
+) VALUES (
+    1,
+    7.3,
+    34.8,
+    '{ "summary": "Moderate Risk", "CRP": 4.2, "IL6": 6.1 }',
+    'Vivek shows moderate inflammation and borderline glucose control.'
+);
