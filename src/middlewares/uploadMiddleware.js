@@ -9,10 +9,14 @@ const config = require('../config');
  * Uses memory storage for efficiency (no disk I/O)
  */
 
-// Ensure upload directory exists
+// Ensure upload directory exists (handles both local and serverless environments)
 const uploadDir = config.upload.tempDir;
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
+try {
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+} catch (error) {
+  console.warn(`[Upload] Could not create upload directory: ${error.message}. Using memory storage only.`);
 }
 
 // Configure multer storage (memory storage for streaming)

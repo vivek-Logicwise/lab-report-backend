@@ -38,7 +38,8 @@ const config = {
     maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '10485760', 10), // 10MB default
     maxFiles: parseInt(process.env.MAX_FILES_PER_REQUEST || '10', 10),
     allowedTypes: ['application/pdf'],
-    tempDir: './uploads/temp'
+    // Use /tmp for serverless environments (AWS Lambda, etc.), fallback to ./uploads/temp for local
+    tempDir: process.env.LAMBDA_TASK_ROOT ? '/tmp/uploads' : './uploads/temp'
   },
 
   // Rate limiting
