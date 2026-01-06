@@ -1,4 +1,3 @@
-const { v4: uuidv4 } = require('uuid');
 const pdfExtractionService = require('../services/pdfExtractionService');
 const biomarkerAnalysisService = require('../services/biomarkerAnalysisService');
 const participantRepository = require('../repositories/participantRepository');
@@ -79,11 +78,8 @@ class BiomarkerController {
         const extraction = successfulExtractions[i];
         const pdfInfo = extraction.participantInfo;
         
-        // Always generate unique patient code for each file to ensure separate patients
-        // Each file upload = new patient (database has UNIQUE constraint on participant_code)
-        const timestamp = Date.now();
-        const uniqueCode = uuidv4().substring(0, 8).toUpperCase();
-        const patientCode = `PATIENT-${timestamp}-${uniqueCode}`;
+        // Generate short unique patient code
+        const patientCode = `PT-${Date.now().toString(36).toUpperCase()}`;
         
         console.log(`[Controller] Processing patient ${i + 1}/${successfulExtractions.length}: ${patientCode}`);
 
@@ -109,8 +105,8 @@ class BiomarkerController {
           const participant = await participantRepository.create(participantData);
           console.log(`[Controller] Created new participant ID: ${participant.participant_id}`);
 
-          // Generate unique report ID for this patient
-          const reportId = `RPT-${participant.participant_code}-${Date.now()}-${uuidv4().substring(0, 8)}`;
+          // Generate unique short report ID
+          const reportId = `RPT-${Date.now().toString(36).toUpperCase()}`;
 
           // Bulk insert markers into database
           if (validation.markers.vip.length > 0) {

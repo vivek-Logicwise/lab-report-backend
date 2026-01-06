@@ -1,4 +1,3 @@
-const sql = require('mssql');
 const dbPool = require('../config/database');
 
 /**
@@ -12,29 +11,20 @@ class ParticipantRepository {
    */
   async findByCode(participantCode) {
     try {
-      const pool = await dbPool.getPool();
+      const query = `
+        SELECT 
+          participant_id,
+          participant_code,
+          age,
+          gender,
+          ethnicity,
+          created_at
+        FROM participants
+        WHERE participant_code = @param0
+      `;
       
-      return new Promise((resolve, reject) => {
-        const query = `
-          SELECT 
-            participant_id,
-            participant_code,
-            age,
-            gender,
-            ethnicity,
-            created_at
-          FROM participants
-          WHERE participant_code = ?
-        `;
-        
-        pool.query(query, [participantCode], (err, results) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(results && results.length > 0 ? results[0] : null);
-          }
-        });
-      });
+      const result = await dbPool.query(query, [participantCode]);
+      return result.recordset && result.recordset.length > 0 ? result.recordset[0] : null;
     } catch (error) {
       console.error('[ParticipantRepo] Error finding participant:', error);
       throw error;
@@ -46,29 +36,20 @@ class ParticipantRepository {
    */
   async findById(participantId) {
     try {
-      const pool = await dbPool.getPool();
+      const query = `
+        SELECT 
+          participant_id,
+          participant_code,
+          age,
+          gender,
+          ethnicity,
+          created_at
+        FROM participants
+        WHERE participant_id = @param0
+      `;
       
-      return new Promise((resolve, reject) => {
-        const query = `
-          SELECT 
-            participant_id,
-            participant_code,
-            age,
-            gender,
-            ethnicity,
-            created_at
-          FROM participants
-          WHERE participant_id = ?
-        `;
-        
-        pool.query(query, [participantId], (err, results) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(results && results.length > 0 ? results[0] : null);
-          }
-        });
-      });
+      const result = await dbPool.query(query, [participantId]);
+      return result.recordset && result.recordset.length > 0 ? result.recordset[0] : null;
     } catch (error) {
       console.error('[ParticipantRepo] Error finding participant by ID:', error);
       throw error;
@@ -80,31 +61,22 @@ class ParticipantRepository {
    */
   async create(participantData) {
     try {
-      const pool = await dbPool.getPool();
+      const query = `
+        INSERT INTO participants (participant_code, age, gender, ethnicity)
+        OUTPUT INSERTED.participant_id, INSERTED.participant_code, 
+               INSERTED.age, INSERTED.gender, INSERTED.ethnicity, INSERTED.created_at
+        VALUES (@param0, @param1, @param2, @param3)
+      `;
       
-      return new Promise((resolve, reject) => {
-        const query = `
-          INSERT INTO participants (participant_code, age, gender, ethnicity)
-          OUTPUT INSERTED.participant_id, INSERTED.participant_code, 
-                 INSERTED.age, INSERTED.gender, INSERTED.ethnicity, INSERTED.created_at
-          VALUES (?, ?, ?, ?)
-        `;
-        
-        const params = [
-          participantData.participant_code,
-          participantData.age || null,
-          participantData.gender || null,
-          participantData.ethnicity || null
-        ];
-        
-        pool.query(query, params, (err, results) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(results && results.length > 0 ? results[0] : null);
-          }
-        });
-      });
+      const params = [
+        participantData.participant_code,
+        participantData.age || null,
+        participantData.gender || null,
+        participantData.ethnicity || null
+      ];
+      
+      const result = await dbPool.query(query, params);
+      return result.recordset && result.recordset.length > 0 ? result.recordset[0] : null;
     } catch (error) {
       console.error('[ParticipantRepo] Error creating participant:', error);
       throw error;
@@ -116,35 +88,26 @@ class ParticipantRepository {
    */
   async update(participantId, updateData) {
     try {
-      const pool = await dbPool.getPool();
+      const query = `
+        UPDATE participants
+        SET 
+          age = COALESCE(@param0, age),
+          gender = COALESCE(@param1, gender),
+          ethnicity = COALESCE(@param2, ethnicity)
+        OUTPUT INSERTED.participant_id, INSERTED.participant_code,
+               INSERTED.age, INSERTED.gender, INSERTED.ethnicity
+        WHERE participant_id = @param3
+      `;
       
-      return new Promise((resolve, reject) => {
-        const query = `
-          UPDATE participants
-          SET 
-            age = COALESCE(?, age),
-            gender = COALESCE(?, gender),
-            ethnicity = COALESCE(?, ethnicity)
-          OUTPUT INSERTED.participant_id, INSERTED.participant_code,
-                 INSERTED.age, INSERTED.gender, INSERTED.ethnicity
-          WHERE participant_id = ?
-        `;
-        
-        const params = [
-          updateData.age || null,
-          updateData.gender || null,
-          updateData.ethnicity || null,
-          participantId
-        ];
-        
-        pool.query(query, params, (err, results) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(results && results.length > 0 ? results[0] : null);
-          }
-        });
-      });
+      const params = [
+        updateData.age || null,
+        updateData.gender || null,
+        updateData.ethnicity || null,
+        participantId
+      ];
+      
+      const result = await dbPool.query(query, params);
+      return result.recordset && result.recordset.length > 0 ? result.recordset[0] : null;
     } catch (error) {
       console.error('[ParticipantRepo] Error updating participant:', error);
       throw error;

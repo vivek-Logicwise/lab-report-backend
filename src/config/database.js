@@ -1,4 +1,3 @@
-const sqlv8 = require('msnodesqlv8');
 const sql = require('mssql');
 const config = require('./index');
 
@@ -33,38 +32,53 @@ class DatabasePool {
     try {
       this.isConnecting = true;
       console.log('[DB] Connecting to MSSQL database...');
-      console.log('[DB] Using msnodesqlv8 driver');
-      console.log('[DB] Connection string:', config.database.connectionString);
+      console.log('[DB] Server:', config.database.server);
+      console.log('[DB] Database:', config.database.database);
 
-      // Use raw msnodesqlv8 wrapped in a promise
-      this.pool = await new Promise((resolve, reject) => {
-        sqlv8.open(config.database.connectionString, (err, conn) => {
-          if (err) {
-            reject(err);
-          } else {
-            // Wrap the raw connection to be compatible with mssql interface
-            conn.request = function() {
-              const self = this;
-              return {
-                query: function(queryText) {
-                  return new Promise((resolve, reject) => {
-                    self.query(queryText, (err, results) => {
-                      if (err) reject(err);
-                      else resolve({ recordset: results });
-                    });
-                  });
-                }
-              };
-            };
-            resolve(conn);
-          }
-        });
-      });
+      // Parse server name to extract instance
+      const serverParts = config.database.server.split('\\');
+      const serverName = serverParts[0];
+      const instanceName = serverParts[1] || '';
 
+      // Use standard mssql package
+      const poolConfig = {
+        server: serverName,
+        database: config.database.database,
+        port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : (instanceName ? undefined : 1433),
+        options: {
+          ...config.database.options,
+          instanceName: instanceName || undefined,
+          trustedConnection: !config.database.user,
+          enableArithAbort: true,
+          connectTimeout: 30000,
+          requestTimeout: 30000
+        },
+        pool: config.database.pool
+      };
+
+      // Add authentication - either Windows or SQL
+      if (config.database.user) {
+        poolConfig.user = config.database.user;
+        poolConfig.password = config.database.password;
+        poolConfig.authentication = {
+          type: 'default'
+        };
+      }
+
+      console.log('[DB] Connection config:', JSON.stringify({
+        server: poolConfig.server,
+        database: poolConfig.database,
+        instanceName: poolConfig.options.instanceName,
+        trustedConnection: poolConfig.options.trustedConnection,
+        port: poolConfig.options.port
+      }, null, 2));
+
+      this.pool = await sql.connect(poolConfig);
       console.log(`[DB] Connected successfully to ${config.database.database}`);
       return this.pool;
     } catch (error) {
       console.error('[DB] Connection failed:', error.message);
+      console.error('[DB] Error details:', error);
       throw new Error(`Database connection failed: ${error.message}`);
     } finally {
       this.isConnecting = false;

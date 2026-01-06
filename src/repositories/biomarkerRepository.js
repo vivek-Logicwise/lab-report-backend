@@ -8,19 +8,11 @@ const dbPool = require('../config/database');
 
 class BiomarkerRepository {
   /**
-   * Helper to promisify query execution
+   * Execute query using mssql package
    */
   async executeQuery(query, params = []) {
-    const pool = await dbPool.getPool();
-    return new Promise((resolve, reject) => {
-      pool.query(query, params, (err, results) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(results || []);
-        }
-      });
-    });
+    const result = await dbPool.query(query, params);
+    return result.recordset || [];
   }
 
   /**
@@ -103,7 +95,7 @@ class BiomarkerRepository {
           INSERT INTO participant_biomarkers 
             (participant_id, marker_code, value, unit, upload_date, report_id)
           OUTPUT INSERTED.biomarker_id, INSERTED.marker_code, INSERTED.value
-          VALUES (?, ?, ?, ?, ?, ?)
+          VALUES (@param0, @param1, @param2, @param3, @param4, @param5)
         `;
 
         const params = [
@@ -144,7 +136,7 @@ class BiomarkerRepository {
           INSERT INTO participant_secondary_markers 
             (participant_id, marker_code, value, unit, upload_date, report_id)
           OUTPUT INSERTED.secondary_id, INSERTED.marker_code, INSERTED.value
-          VALUES (?, ?, ?, ?, ?, ?)
+          VALUES (@param0, @param1, @param2, @param3, @param4, @param5)
         `;
 
         const params = [
@@ -187,7 +179,7 @@ class BiomarkerRepository {
           vmr.category
         FROM participant_biomarkers pb
         JOIN vip_marker_references vmr ON pb.marker_code = vmr.marker_code
-        WHERE pb.participant_id = ?
+        WHERE pb.participant_id = @param0
         ORDER BY pb.upload_date DESC, vmr.category, vmr.priority
       `;
 
@@ -216,7 +208,7 @@ class BiomarkerRepository {
           smr.subcategory
         FROM participant_secondary_markers ps
         JOIN secondary_marker_references smr ON ps.marker_code = smr.marker_code
-        WHERE ps.participant_id = ?
+        WHERE ps.participant_id = @param0
         ORDER BY ps.upload_date DESC, smr.category
       `;
 
@@ -236,7 +228,7 @@ class BiomarkerRepository {
         INSERT INTO analysis_results 
           (participant_id, vip_risk_score, biological_age, result_json, gemini_report)
         OUTPUT INSERTED.analysis_id, INSERTED.analysis_date
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (@param0, @param1, @param2, @param3, @param4)
       `;
 
       const params = [

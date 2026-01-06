@@ -15,9 +15,6 @@ const config = {
 
   // Database configuration (MSSQL)
   database: {
-    // For msnodesqlv8, use connection string
-    connectionString: `server=${process.env.DB_SERVER || 'localhost'};Database=${process.env.DB_NAME || 'burak_db'};Uid=${process.env.DB_USER || 'sa'};Pwd=${process.env.DB_PASSWORD};Driver={ODBC Driver 17 for SQL Server};TrustServerCertificate=yes`,
-    // Keep these for reference
     server: process.env.DB_SERVER || 'localhost',
     database: process.env.DB_NAME || 'burak_db',
     user: process.env.DB_USER || 'sa',
@@ -120,8 +117,9 @@ const config = {
 function validateConfig() {
   const errors = [];
 
-  if (!config.database.password) {
-    errors.push('DB_PASSWORD is required');
+  // Only require password if using SQL Authentication (DB_USER is set)
+  if (process.env.DB_USER && !config.database.password) {
+    errors.push('DB_PASSWORD is required when using SQL Authentication');
   }
 
   if (!config.database.server) {
