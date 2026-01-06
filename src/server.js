@@ -182,10 +182,14 @@ class Server {
   }
 }
 
-// Start server if this file is run directly
+// Start server if this file is run directly (traditional deployment)
 if (require.main === module) {
   const server = new Server();
   server.start();
 }
 
-module.exports = Server;
+// Export for serverless deployment (Lambda, etc.)
+// Create and export the Express app instance
+const serverInstance = new Server();
+module.exports = serverInstance.app;
+module.exports.Server = Server;
