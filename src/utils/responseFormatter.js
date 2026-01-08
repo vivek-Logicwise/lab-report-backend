@@ -9,11 +9,13 @@ class ResponseFormatter {
    * Matches the expected JSON structure from requirements
    * Note: Secondary markers are stored in DB but NOT returned in response
    */
-  formatAnalysisResponse(participant, vipAnalysis, secondaryAnalysis) {
+  formatAnalysisResponse(participant, vipAnalysis, secondaryAnalysis, patientName = null, gender) {
     return {
       participant: {
         participant_id: participant.participant_id,
         participant_code: participant.participant_code,
+        patient_name: patientName,
+        gender: gender,
         chronological_age: participant.age
       },
       summary: vipAnalysis.summary,

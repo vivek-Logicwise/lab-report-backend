@@ -211,7 +211,9 @@ class BiomarkerController {
           const patientResponse = responseFormatter.formatAnalysisResponse(
             participant,
             vipAnalysis,
-            secondaryAnalysis
+            secondaryAnalysis,
+            pdfInfo.name,
+            pdfInfo.gender
           );
 
           patientResults.push({
