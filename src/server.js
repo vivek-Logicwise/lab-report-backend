@@ -33,6 +33,10 @@ class Server {
    * Configure Express middlewares
    */
   setupMiddlewares() {
+    // Trust proxy - Required for production environments (AWS, Azure, Heroku, etc.)
+    // This allows Express to trust X-Forwarded-* headers from reverse proxies
+    this.app.set('trust proxy', 1);
+
     // Security headers
     this.app.use(helmet());
 
