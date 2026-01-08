@@ -23,24 +23,49 @@ try {
   config = require('./config.development.js');
 }
 
+// Import database module
+const database = require('./database');
+
 // Validate required configuration
 function validateConfig() {
   const errors = [];
 
-  // Only require password if using SQL Authentication (DB_USER is set)
-  if (process.env.DB_USER && !config.database.password) {
-    errors.push('DB_PASSWORD is required when using SQL Authentication');
+  // Validate database configuration
+  if (!config.database.host) {
+    errors.push('Database host is required');
   }
-
-  if (!config.database.server) {
-    errors.push('DB_SERVER is required');
+  if (!config.database.database) {
+    errors.push('Database name is required');
+  }
+  if (!config.database.user) {
+    errors.push('Database user is required');
+  }
+  if (!config.database.password) {
+    errors.push('Database password is required');
   }
 
   if (errors.length > 0) {
-    throw new Error(`Configuration validation failed:\n${errors.join('\n')}`);
+    console.error('[CONFIG] ✗ Configuration validation failed:');
+    errors.forEach(error => console.error(`   - ${error}`));
+    throw new Error('Invalid configuration');
   }
+
+  console.log('[CONFIG] ✓ Configuration validated successfully');
 }
 
+// Run validation
 validateConfig();
 
-module.exports = config;
+module.exports = {
+  ...config,
+  database: {
+    ...config.database,
+    pool: database.pool,
+    query: database.query,
+    getClient: database.getClient,
+    transaction: database.transaction,
+    testConnection: database.testConnection,
+    healthCheck: database.healthCheck,
+    close: database.close
+  }
+};

@@ -31,16 +31,50 @@ src/
 ```bash
 # Install dependencies
 npm install
+```
 
-# Copy environment file
-cp .env.example .env
+## ⚠️ Database Connection Setup (Required)
 
-# Update .env with your database credentials
+The application uses **Google Cloud SQL PostgreSQL**. You must authorize your IP before running locally.
 
-# Run server
+### Quick Setup:
+
+**1. Get your IP:**
+```powershell
+(Invoke-WebRequest -Uri "https://api.ipify.org").Content
+```
+
+**2. Add IP to Cloud SQL:**
+- Go to: https://console.cloud.google.com/sql/instances
+- Project: **Waseem MVP** → Instance: **waseem-mvp-test-db**
+- **Connections** → **Authorized networks** → **Add network**
+- Name: `Dev Machine`, Network: `YOUR_IP/32`
+- **Save**
+
+**3. Start app:**
+```bash
+npm start
+```
+
+📖 **Detailed instructions:** [CLOUD_SQL_SETUP.md](CLOUD_SQL_SETUP.md)
+
+### Alternative: Cloud SQL Proxy
+```powershell
+# Run proxy (separate terminal)
+.\cloud-sql-proxy.exe waseem-mvp:us-central1:waseem-mvp-test-db
+
+# Update .env: DB_HOST=127.0.0.1
+# Start app
+npm start
+```
+
+## Run Application
+
+```bash
+# Development
 npm start
 
-# Development mode with auto-reload
+# With auto-reload
 npm run dev
 ```
 
@@ -69,7 +103,7 @@ See `.env.example` for all configuration options.
 
 ## Database Schema
 
-Requires MSSQL database with tables:
+Requires PostgreSQL database with tables:
 - `participants`
 - `vip_marker_references`
 - `participant_biomarkers`
@@ -77,7 +111,7 @@ Requires MSSQL database with tables:
 - `participant_secondary_markers`
 - `analysis_results`
 
-See `Document/Burak table script.txt` for complete schema.
+See [Document/postgre tables script.sql](Document/postgre tables script.sql) for complete schema.
 
 ## Performance Optimizations
 

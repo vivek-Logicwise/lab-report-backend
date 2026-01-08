@@ -5,7 +5,7 @@
  */
 
 // Validate required environment variables
-const requiredEnvVars = ['DB_SERVER', 'DB_NAME', 'DB_USER', 'DB_PASSWORD'];
+const requiredEnvVars = ['DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASSWORD'];
 const missing = requiredEnvVars.filter(varName => !process.env[varName]);
 
 if (missing.length > 0) {
@@ -25,23 +25,19 @@ module.exports = {
     corsOrigins: process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : ['*']
   },
 
-  // Database configuration (MSSQL) - All from environment
+  // PostgreSQL Configuration (Google Cloud SQL) - All from environment
   database: {
-    server: process.env.DB_SERVER,
+    host: process.env.DB_HOST,
+    port: parseInt(process.env.DB_PORT || '5432', 10),
     database: process.env.DB_NAME,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
-    options: {
-      encrypt: process.env.DB_ENCRYPT === 'false' ? false : true, // Default true for production
-      trustServerCertificate: process.env.DB_TRUST_SERVER_CERTIFICATE === 'true',
-      enableArithAbort: true,
-      connectionTimeout: parseInt(process.env.DB_CONNECTION_TIMEOUT || '30000', 10),
-      requestTimeout: parseInt(process.env.DB_REQUEST_TIMEOUT || '30000', 10)
-    },
+    ssl: process.env.DB_SSL === 'true',
     pool: {
       min: parseInt(process.env.DB_POOL_MIN || '5', 10), // Higher for production
       max: parseInt(process.env.DB_POOL_MAX || '50', 10), // Higher for production
-      idleTimeoutMillis: 30000
+      idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT || '30000', 10),
+      connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT || '30000', 10)
     }
   },
 

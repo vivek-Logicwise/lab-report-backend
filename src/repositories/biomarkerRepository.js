@@ -3,16 +3,16 @@ const dbPool = require('../config/database');
 /**
  * Biomarker Repository
  * Handles VIP markers and secondary markers database operations
- * Optimized for msnodesqlv8 driver
+ * Optimized for PostgreSQL
  */
 
 class BiomarkerRepository {
   /**
-   * Execute query using mssql package
+   * Execute query using PostgreSQL
    */
   async executeQuery(query, params = []) {
     const result = await dbPool.query(query, params);
-    return result.recordset || [];
+    return result.rows || [];
   }
 
   /**
@@ -80,89 +80,6 @@ class BiomarkerRepository {
   }
 
   /**
-   * Bulk insert VIP markers
-   * Inserts one at a time for msnodesqlv8 compatibility
-   */
-  async bulkInsertVIPMarkers(participantId, markers, reportId) {
-    try {
-      if (markers.length === 0) return [];
-
-      const results = [];
-      const uploadDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-
-      for (const marker of markers) {
-        const query = `
-          INSERT INTO participant_biomarkers 
-            (participant_id, marker_code, value, unit, upload_date, report_id)
-          OUTPUT INSERTED.biomarker_id, INSERTED.marker_code, INSERTED.value
-          VALUES (@param0, @param1, @param2, @param3, @param4, @param5)
-        `;
-
-        const params = [
-          participantId,
-          marker.marker_code,
-          marker.value,
-          marker.unit,
-          uploadDate,
-          reportId
-        ];
-
-        const result = await this.executeQuery(query, params);
-        if (result && result.length > 0) {
-          results.push(result[0]);
-        }
-      }
-
-      console.log(`[BiomarkerRepo] Inserted ${results.length} VIP markers`);
-      return results;
-    } catch (error) {
-      console.error('[BiomarkerRepo] Error bulk inserting VIP markers:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Bulk insert secondary markers
-   */
-  async bulkInsertSecondaryMarkers(participantId, markers, reportId) {
-    try {
-      if (markers.length === 0) return [];
-
-      const results = [];
-      const uploadDate = new Date().toISOString().split('T')[0];
-
-      for (const marker of markers) {
-        const query = `
-          INSERT INTO participant_secondary_markers 
-            (participant_id, marker_code, value, unit, upload_date, report_id)
-          OUTPUT INSERTED.secondary_id, INSERTED.marker_code, INSERTED.value
-          VALUES (@param0, @param1, @param2, @param3, @param4, @param5)
-        `;
-
-        const params = [
-          participantId,
-          marker.marker_code,
-          marker.value,
-          marker.unit,
-          uploadDate,
-          reportId
-        ];
-
-        const result = await this.executeQuery(query, params);
-        if (result && result.length > 0) {
-          results.push(result[0]);
-        }
-      }
-
-      console.log(`[BiomarkerRepo] Inserted ${results.length} secondary markers`);
-      return results;
-    } catch (error) {
-      console.error('[BiomarkerRepo] Error bulk inserting secondary markers:', error);
-      throw error;
-    }
-  }
-
-  /**
    * Get participant's VIP marker values
    */
   async getParticipantVIPMarkers(participantId) {
@@ -179,7 +96,7 @@ class BiomarkerRepository {
           vmr.category
         FROM participant_biomarkers pb
         JOIN vip_marker_references vmr ON pb.marker_code = vmr.marker_code
-        WHERE pb.participant_id = @param0
+        WHERE pb.participant_id = $1
         ORDER BY pb.upload_date DESC, vmr.category, vmr.priority
       `;
 
@@ -208,7 +125,7 @@ class BiomarkerRepository {
           smr.subcategory
         FROM participant_secondary_markers ps
         JOIN secondary_marker_references smr ON ps.marker_code = smr.marker_code
-        WHERE ps.participant_id = @param0
+        WHERE ps.participant_id = $1
         ORDER BY ps.upload_date DESC, smr.category
       `;
 
@@ -227,8 +144,8 @@ class BiomarkerRepository {
       const query = `
         INSERT INTO analysis_results 
           (participant_id, vip_risk_score, biological_age, result_json, gemini_report)
-        OUTPUT INSERTED.analysis_id, INSERTED.analysis_date
-        VALUES (@param0, @param1, @param2, @param3, @param4)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING analysis_id, analysis_date
       `;
 
       const params = [

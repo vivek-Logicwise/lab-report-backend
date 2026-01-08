@@ -81,8 +81,6 @@ class BiomarkerController {
         // Generate short unique patient code
         const patientCode = `PT-${Date.now().toString(36).toUpperCase()}`;
         
-        console.log(`[Controller] Processing patient ${i + 1}/${successfulExtractions.length}: ${patientCode}`);
-
         try {
           // Validate extracted data for this patient
           const validation = pdfExtractionService.validateMarkerData({
@@ -102,38 +100,98 @@ class BiomarkerController {
             ethnicity: ethnicity
           };
 
-          const participant = await participantRepository.create(participantData);
-          console.log(`[Controller] Created new participant ID: ${participant.participant_id}`);
+          // Use transaction for all database inserts (faster and atomic)
+          const { participant, vipResults, secondaryResults, reportId } = await dbPool.transaction(async (client) => {
+            // Create participant
+            const participantQuery = `
+              INSERT INTO participants (participant_code, age, gender, ethnicity)
+              VALUES ($1, $2, $3, $4)
+              RETURNING participant_id, participant_code, age, gender, ethnicity, created_at
+            `;
+            const participantResult = await client.query(participantQuery, [
+              participantData.participant_code,
+              participantData.age,
+              participantData.gender,
+              participantData.ethnicity
+            ]);
+            const participant = participantResult.rows[0];
 
-          // Generate unique short report ID
-          const reportId = `RPT-${Date.now().toString(36).toUpperCase()}`;
+            // Generate unique short report ID
+            const reportId = `RPT-${Date.now().toString(36).toUpperCase()}`;
+            const uploadDate = new Date().toISOString().split('T')[0];
 
-          // Bulk insert markers into database
-          if (validation.markers.vip.length > 0) {
-            await biomarkerRepository.bulkInsertVIPMarkers(
-              participant.participant_id,
-              validation.markers.vip,
-              reportId
-            );
-            console.log(`[Controller] Inserted ${validation.markers.vip.length} VIP markers for ${patientCode}`);
-          }
+            let vipResults = [];
+            let secondaryResults = [];
 
-          if (validation.markers.secondary.length > 0) {
-            await biomarkerRepository.bulkInsertSecondaryMarkers(
-              participant.participant_id,
-              validation.markers.secondary,
-              reportId
-            );
-            console.log(`[Controller] Inserted ${validation.markers.secondary.length} secondary markers for ${patientCode}`);
-          }
+            // Bulk insert VIP markers
+            if (validation.markers.vip.length > 0) {
+              const vipValues = [];
+              const vipParams = [];
+              let paramIndex = 1;
+              
+              validation.markers.vip.forEach(marker => {
+                vipValues.push(`($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5})`);
+                vipParams.push(
+                  participant.participant_id,
+                  marker.marker_code,
+                  marker.value,
+                  marker.unit,
+                  uploadDate,
+                  reportId
+                );
+                paramIndex += 6;
+              });
+              
+              const vipQuery = `
+                INSERT INTO participant_biomarkers 
+                  (participant_id, marker_code, value, unit, upload_date, report_id)
+                VALUES ${vipValues.join(', ')}
+                RETURNING biomarker_id, marker_code, value
+              `;
+              
+              const vipResult = await client.query(vipQuery, vipParams);
+              vipResults = vipResult.rows;
+            }
 
-          // Analyze VIP markers
+            // Bulk insert secondary markers
+            if (validation.markers.secondary.length > 0) {
+              const secValues = [];
+              const secParams = [];
+              let paramIndex = 1;
+              
+              validation.markers.secondary.forEach(marker => {
+                secValues.push(`($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5})`);
+                secParams.push(
+                  participant.participant_id,
+                  marker.marker_code,
+                  marker.value,
+                  marker.unit,
+                  uploadDate,
+                  reportId
+                );
+                paramIndex += 6;
+              });
+              
+              const secQuery = `
+                INSERT INTO participant_secondary_markers 
+                  (participant_id, marker_code, value, unit, upload_date, report_id)
+                VALUES ${secValues.join(', ')}
+                RETURNING secondary_id, marker_code, value
+              `;
+              
+              const secResult = await client.query(secQuery, secParams);
+              secondaryResults = secResult.rows;
+            }
+
+            return { participant, vipResults, secondaryResults, reportId };
+          });
+
+          // Analyze markers (outside transaction for faster commits)
           const vipAnalysis = await biomarkerAnalysisService.analyzeVIPMarkers(
             validation.markers.vip,
             participant.age
           );
 
-          // Analyze secondary markers
           const secondaryAnalysis = await biomarkerAnalysisService.analyzeSecondaryMarkers(
             validation.markers.secondary
           );
@@ -160,8 +218,6 @@ class BiomarkerController {
             ...patientResponse,
             file_name: extraction.fileName
           });
-
-          console.log(`[Controller] Completed processing for patient: ${patientCode}`);
 
         } catch (error) {
           console.error(`[Controller] Error processing patient ${patientCode}:`, error);

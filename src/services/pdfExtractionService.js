@@ -108,21 +108,19 @@ class PDFExtractionService {
       const codeMatch = line.match(/(?:Patient|Participant|Report)\s*(?:Code|ID)\s*[:\\s]\s*([A-Z0-9\\-]+)/i);
       if (codeMatch && !participantInfo.participant_code) {
         participantInfo.participant_code = codeMatch[1];
-        console.log(`[PDF] Extracted participant code: ${participantInfo.participant_code}`);
       }
 
       // Extract Name (e.g., "Patient Name: Vivek Kumar" or "Name: John Doe")
       const nameMatch = line.match(/(?:Patient\s*)?Name\s*[:\s]\s*([A-Za-z\s]+)(?:\s|$)/i);
       if (nameMatch && !participantInfo.name && !line.includes('Marker')) {
         participantInfo.name = nameMatch[1].trim();
-        console.log(`[PDF] Extracted name: ${participantInfo.name}`);
       }
 
       // Extract Age (e.g., "Age: 31" or "Age: 31 years")
       const ageMatch = line.match(/Age\s*[:\s]\s*(\d+)/i);
       if (ageMatch && !participantInfo.age) {
         participantInfo.age = parseInt(ageMatch[1]);
-        console.log(`[PDF] Extracted age: ${participantInfo.age}`);
+
       }
 
       // Extract Gender (e.g., "Gender: Male" or "Sex: Female")
@@ -150,14 +148,12 @@ class PDFExtractionService {
       if (/Section\s+A[:\s]*VIP\s+Markers/i.test(line)) {
         inSectionA = true;
         inSectionB = false;
-        console.log('[PDF] Found Section A: VIP Markers');
         continue;
       }
 
       if (/Section\s+B[:\s]*Secondary\s+Markers/i.test(line)) {
         inSectionA = false;
         inSectionB = true;
-        console.log('[PDF] Found Section B: Secondary Markers');
         continue;
       }
 
@@ -242,12 +238,11 @@ class PDFExtractionService {
               value: parseFloat(value),
               unit: unit
             });
-            console.log(`[PDF] VIP: ${markerCode} = ${value} ${unit}`);
           } else {
             console.warn(`[PDF] Failed to parse VIP marker: ${foundCode} from line: ${line}`);
           }
         } else if (inSectionA && line.length > 5) {
-          console.warn(`[PDF] Skipped unrecognized VIP line: ${line.substring(0, 50)}...`);
+          // Skip unrecognized lines
         }
       }
 
@@ -276,12 +271,11 @@ class PDFExtractionService {
               value: parseFloat(value),
               unit: unit
             });
-            console.log(`[PDF] Secondary: ${code} = ${value} ${unit}`);
           } else {
             console.warn(`[PDF] Failed to parse secondary marker: ${code} from line: ${line}`);
           }
         } else if (inSectionB && line.length > 5 && !line.match(/^(Code|Marker Name|Value|Unit|Reference)$/i)) {
-          console.warn(`[PDF] Skipped unrecognized secondary line: ${line.substring(0, 50)}...`);
+          // Skip unrecognized lines
         }
       }
     }

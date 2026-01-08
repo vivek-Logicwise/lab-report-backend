@@ -13,23 +13,19 @@ module.exports = {
     corsOrigins: ['*'] // Allow all origins in development
   },
 
-  // Database configuration (MSSQL) - Defaults for local development
+  // PostgreSQL Configuration (Google Cloud SQL)
   database: {
-    server: process.env.DB_SERVER || 'localhost',
-    database: process.env.DB_NAME || 'burak_db',
-    user: process.env.DB_USER || 'sa',
-    password: process.env.DB_PASSWORD || '', // Should be set in .env
-    options: {
-      encrypt: process.env.DB_ENCRYPT === 'true',
-      trustServerCertificate: process.env.DB_TRUST_SERVER_CERTIFICATE === 'true' || true, // Default true for local
-      enableArithAbort: true,
-      connectionTimeout: parseInt(process.env.DB_CONNECTION_TIMEOUT || '30000', 10),
-      requestTimeout: parseInt(process.env.DB_REQUEST_TIMEOUT || '30000', 10)
-    },
+    host: process.env.DB_HOST || '34.55.228.77',
+    port: parseInt(process.env.DB_PORT || '5432', 10),
+    database: process.env.DB_NAME || 'BurakPrecision',
+    user: process.env.DB_USER || 'vivek',
+    password: process.env.DB_PASSWORD || '{-cUD3p_Z7.zPr"&',
+    ssl: process.env.DB_SSL === 'true',
     pool: {
       min: parseInt(process.env.DB_POOL_MIN || '2', 10),
-      max: parseInt(process.env.DB_POOL_MAX || '20', 10),
-      idleTimeoutMillis: 30000
+      max: parseInt(process.env.DB_POOL_MAX || '10', 10),
+      idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT || '30000', 10),
+      connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT || '30000', 10)
     }
   },
 

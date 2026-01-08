@@ -108,9 +108,13 @@ class Server {
    */
   async start() {
     try {
-      // Connect to database
-      console.log('[Server] Connecting to database...');
-      await dbPool.connect();
+      // Test database connection
+      console.log('[Server] Testing database connection...');
+      const connected = await dbPool.testConnection();
+      
+      if (!connected) {
+        throw new Error('Failed to connect to database');
+      }
 
       // Start Express server
       this.server = this.app.listen(this.port, () => {
@@ -119,7 +123,7 @@ class Server {
         console.log('='.repeat(60));
         console.log(`Environment: ${config.server.env}`);
         console.log(`Port: ${this.port}`);
-        console.log(`Database: ${config.database.database}@${config.database.server}`);
+        console.log(`Database: ${config.database.database}@${config.database.host}:${config.database.port}`);
         console.log(`Max file size: ${config.upload.maxFileSize} bytes`);
         console.log(`Max files per request: ${config.upload.maxFiles}`);
         console.log('='.repeat(60));
