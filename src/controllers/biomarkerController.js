@@ -5,15 +5,17 @@ const biomarkerRepository = require('../repositories/biomarkerRepository');
 const { validateUploadRequest, validateFiles } = require('../utils/validation');
 const responseFormatter = require('../utils/responseFormatter');
 const dbPool = require('../config/database');
+const semaphoreManager = require('../utils/semaphore');
 
 /**
  * Biomarker Upload Controller
  * Handles PDF upload, extraction, analysis, and persistence
  * 
  * Performance features:
- * - Concurrent PDF processing
+ * - Concurrent PDF processing with semaphore control
  * - Bulk inserts for efficiency
  * - Comprehensive error handling
+ * - Resource management via semaphore
  */
 
 class BiomarkerController {
@@ -288,18 +290,24 @@ class BiomarkerController {
   }
 
   /**
-   * Health check endpoint
+   * Health check endpoint with semaphore metrics
    * GET /api/health
    */
   async healthCheck(req, res) {
     try {
       const dbHealth = await dbPool.healthCheck();
+      const semaphoreMetrics = semaphoreManager.getMetrics();
+      const availableSlots = semaphoreManager.getAvailableSlots();
 
       return res.status(200).json({
         success: true,
         status: 'healthy',
         timestamp: new Date().toISOString(),
-        database: dbHealth
+        database: dbHealth,
+        concurrency: {
+          available_slots: availableSlots,
+          metrics: semaphoreMetrics
+        }
       });
     } catch (error) {
       return res.status(503).json({

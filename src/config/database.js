@@ -1,8 +1,9 @@
 const { Pool } = require('pg');
+const semaphoreManager = require('../utils/semaphore');
 
 /**
  * PostgreSQL Database Connection Pool
- * Google Cloud SQL connection configuration
+ * Google Cloud SQL connection configuration with Semaphore concurrency control
  * Instance: waseem-mvp:us-central1:waseem-mvp-test-db
  */
 
@@ -97,43 +98,47 @@ async function testConnection() {
 }
 
 /**
- * Execute a query
+ * Execute a query with semaphore control
  */
 async function query(text, params) {
-  const start = Date.now();
-  let client;
-  
-  try {
-    client = await pool.connect();
-    const result = await client.query(text, params);
-    const duration = Date.now() - start;
+  return semaphoreManager.executeDB(async () => {
+    const start = Date.now();
+    let client;
     
-    // Only log slow queries (> 1 second)
-    if (duration > 1000) {
-      console.warn('[DB] Slow query detected', { duration, rows: result.rowCount });
+    try {
+      client = await pool.connect();
+      const result = await client.query(text, params);
+      const duration = Date.now() - start;
+      
+      // Only log slow queries (> 1 second)
+      if (duration > 1000) {
+        console.warn('[DB] Slow query detected', { duration, rows: result.rowCount });
+      }
+      
+      client.release();
+      return result;
+    } catch (error) {
+      console.error('[DB] Query error:', error.message);
+      console.error('[DB] Query text:', text.substring(0, 200));
+      if (client) client.release();
+      throw error;
     }
-    
-    client.release();
-    return result;
-  } catch (error) {
-    console.error('[DB] Query error:', error.message);
-    console.error('[DB] Query text:', text.substring(0, 200));
-    if (client) client.release();
-    throw error;
-  }
+  }, 'DB-Query');
 }
 
 /**
- * Get a client from the pool for transactions
+ * Get a client from the pool for transactions with semaphore control
  */
 async function getClient() {
-  try {
-    const client = await pool.connect();
-    return client;
-  } catch (error) {
-    console.error('[DB] Failed to get client:', error.message);
-    throw error;
-  }
+  return semaphoreManager.executeDB(async () => {
+    try {
+      const client = await pool.connect();
+      return client;
+    } catch (error) {
+      console.error('[DB] Failed to get client:', error.message);
+      throw error;
+    }
+  }, 'DB-GetClient');
 }
 
 /**

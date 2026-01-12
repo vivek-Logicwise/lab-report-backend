@@ -1,5 +1,6 @@
 const fs = require('fs').promises;
 const pdfParse = require('pdf-parse');
+const semaphoreManager = require('../utils/semaphore');
 
 /**
  * PDF Extraction Service
@@ -7,8 +8,9 @@ const pdfParse = require('pdf-parse');
  * 
  * Performance optimizations:
  * - Streaming for large files
- * - Concurrent processing with Promise.all
+ * - Concurrent processing with Promise.all and Semaphore control
  * - Memory cleanup after processing
+ * - Concurrency limits via semaphore to prevent resource exhaustion
  */
 
 class PDFExtractionService {
@@ -51,29 +53,32 @@ class PDFExtractionService {
    * @returns {Promise<string>} Extracted text content
    */
   async extractFromPDF(pdfSource) {
-    try {
-      let dataBuffer;
+    // Use semaphore to control concurrency
+    return semaphoreManager.executePDF(async () => {
+      try {
+        let dataBuffer;
 
-      // Handle both buffer and file path inputs
-      if (Buffer.isBuffer(pdfSource)) {
-        dataBuffer = pdfSource;
-      } else if (typeof pdfSource === 'string') {
-        dataBuffer = await fs.readFile(pdfSource);
-      } else {
-        throw new Error('Invalid PDF source: must be Buffer or file path');
+        // Handle both buffer and file path inputs
+        if (Buffer.isBuffer(pdfSource)) {
+          dataBuffer = pdfSource;
+        } else if (typeof pdfSource === 'string') {
+          dataBuffer = await fs.readFile(pdfSource);
+        } else {
+          throw new Error('Invalid PDF source: must be Buffer or file path');
+        }
+
+        // Parse PDF with optimized options
+        const data = await pdfParse(dataBuffer, {
+          max: 0, // Parse all pages
+          version: 'default'
+        });
+
+        return data.text;
+      } catch (error) {
+        console.error('[PDF Extraction] Error extracting PDF:', error.message);
+        throw new Error(`Failed to extract PDF content: ${error.message}`);
       }
-
-      // Parse PDF with optimized options
-      const data = await pdfParse(dataBuffer, {
-        max: 0, // Parse all pages
-        version: 'default'
-      });
-
-      return data.text;
-    } catch (error) {
-      console.error('[PDF Extraction] Error extracting PDF:', error.message);
-      throw new Error(`Failed to extract PDF content: ${error.message}`);
-    }
+    }, 'PDF-Extract');
   }
 
   /**
@@ -402,25 +407,27 @@ class PDFExtractionService {
 
   /**
    * Process multiple PDFs concurrently
-   * Optimized for performance with concurrent processing
+   * Optimized for performance with concurrent processing and semaphore control
    * 
    * @param {Array} files - Array of file objects {path, buffer}
    * @returns {Promise<Array>} Array of parsed results
    */
   async processMultiplePDFs(files) {
     try {
-      console.log(`[PDF Extraction] Processing ${files.length} PDF files concurrently...`);
+      console.log(`[PDF Extraction] Processing ${files.length} PDF files with concurrency control...`);
 
-      // Process all PDFs in parallel for maximum performance
+      // Process all PDFs in parallel with semaphore controlling actual concurrency
+      // The semaphore will queue excess operations automatically
       const results = await Promise.all(
         files.map(async (file, index) => {
           try {
+            const fileName = file.originalname || file.name || `file_${index + 1}.pdf`;
             const text = await this.extractFromPDF(file.buffer || file.path);
             const extractedData = this.parseBiomarkerData(text);
 
             return {
               success: true,
-              fileName: file.originalname || file.name || `file_${index + 1}.pdf`,
+              fileName,
               participantInfo: extractedData.participantInfo,
               markers: extractedData.markers,
               vipCount: extractedData.markers.vip.length,
